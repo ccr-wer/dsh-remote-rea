@@ -1,0 +1,60 @@
+{
+  "name": "dsh-remote-rea",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "private": false,
+  "description": "DSH 插件：远程连接 + 逆向分析（REA / Ghidra）",
+  "license": "MIT",
+  "author": "陈昌锐",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ccr-wer/dsh-remote-rea.git"
+  },
+  "homepage": "https://github.com/ccr-wer/dsh-remote-rea#readme",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "reverse-engineering",
+    "rea",
+    "ghidra",
+    "ssh",
+    "remote-analysis"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "remote-ssh-core.js",
+    "remote-shell-utils.js",
+    "rea-output-parser.js",
+    "rea-finding-extractor.js",
+    "rea-summary.js",
+    "rea-remote-probe.js",
+    "rea-remote-deploy.js",
+    "rea-controller.js",
+    "rea-provider-router.js",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "THIRD_PARTY_LICENSES/"
+  ],
+  "dependencies": {
+    "ssh2": "^1.17.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-tools": "^0.1.5-rc.1 || ^0.2.0-rc.2"
+  }
+}

@@ -1,0 +1,7 @@
+# dsh bundle patch：把本插件声明进 DSH 生态的组合层。
+# name 用包名（不是绝对路径）—— `dsh plugin add dsh-remote-rea` 装进 profile 后就能解析，
+# 不需要使用者把仓库 clone 到某台机器的特定目录。
+# id 必须与 index.js 的 export const name 一致：宿主按这个 id 在配置树里挂载本插件。
+- insert:
+    - id: remote-rea
+      name: dsh-remote-rea

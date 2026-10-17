@@ -1,0 +1,5 @@
+node_modules/
+*.tgz
+test/tmp-*
+test/fixtures/*.tmp
+.DS_Store
