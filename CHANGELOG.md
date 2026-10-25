@@ -2,6 +2,25 @@
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格，版本号遵循语义化版本。
 
+## 0.1.2 (2026-10-25)
+
+### 修复
+
+- **engine 释放钩子从未生效**：`ctx.effect(releaseEngine, …)` 直接传函数 —— cordis 的契约是
+  注册期立即执行 `execute`、把**返回值**登记为卸载 disposer（`@deepseek-ai/cordis` lib/index.js:1141-1143），
+  而 `releaseEngine` 无返回值，disposer 从未注册：进程内重载/停用插件时 SSH 池与清扫定时器不会被释放
+  （进程整体退出不受影响）。现改为 `ctx.effect(() => releaseEngine, 'remote-rea:engine')`。
+- 0.1.0 条目「engine 单例经 `ctx.effect()` 在插件 dispose 时释放」当时不成立，以本条为准。
+
+### 测试
+
+- 插件套件的 `ctx.effect` mock 对齐真 cordis 契约（注册期调 fn、返回值当 disposer）；
+  P11 改为经登记的 disposer 走卸载路径。
+- 新增 P11b 真 cordis 对照锚点：修复后形状卸载时 disposer 被调；修复前形状卸载零动作
+  （证明测试有抓住该缺陷的能力）。cordis 不可解析时 SKIP。插件套件 181 → 184。
+- 迷你宿主实证（真 cordis 4.0.2 + 真 index.js，句柄探针）：懒建 1 个清扫 interval → fiber 卸载后
+  `clearInterval` 恰 1 次且落在该句柄 → 再次调用工具按默认路径重建。
+
 ## 0.1.0 (2026-10-17)
 
 首个可安装版本。DSH 生态插件：远程连接 + 逆向分析。**只分析、不利用。**
