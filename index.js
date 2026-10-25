@@ -135,8 +135,10 @@ function authPayload(args) {
 }
 
 export function apply(ctx) {
-  // 宿主卸载本插件（或会话结束）时释放连接池；effect 的返回值就是 disposer。
-  ctx.effect(releaseEngine, 'remote-rea:engine')
+  // cordis 的 effect(execute) 注册期立即执行 execute，返回值是函数才被登记为卸载 disposer
+  // （@deepseek-ai/cordis lib/index.js:1141-1143）。所以传 () => releaseEngine 把函数引用交出去，
+  // releaseEngine 本体在 fiber 卸载时才跑；直接传 releaseEngine 会在注册期空跑一次且永不登记。
+  ctx.effect(() => releaseEngine, 'remote-rea:engine')
 
   ctx.tools.register(defineTool({
     name: 'remote_fetch_binary',

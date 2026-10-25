@@ -158,9 +158,14 @@ section('P2 mock ctx 注册三个工具')
 
 const registered = []
 const effects = []
+// 真 cordis 契约（@deepseek-ai/cordis lib/index.js:1141-1143）：注册期立即执行 fn，
+// 返回值是函数才登记为 disposer；返回 undefined 就什么都不登记。
 mod.apply({
   tools: { register: (t) => registered.push(t) },
-  effect: (fn, label) => { effects.push({ fn, label }) },
+  effect: (fn, label) => {
+    const disposer = fn()
+    effects.push({ disposer: typeof disposer === 'function' ? disposer : null, label })
+  },
 })
 const byName = new Map(registered.map((t) => [t.name, t]))
 const fetchTool = byName.get('remote_fetch_binary')
@@ -171,7 +176,7 @@ ok('[注册] 恰好三个工具', registered.length === 3, j(registered.map((t) 
 ok('[注册] 工具名齐', ['remote_fetch_binary', 'remote_rea_analyze', 'remote_hosts'].every((t) => byName.has(t)))
 ok('[注册] 每个都是 defineTool 产物（有编译后 parameters + execute + render）',
   registered.every((t) => t.parameters?.type === 'object' && typeof t.execute === 'function' && Array.isArray(t.output.render({}, 'x'))))
-ok('[注册] ctx.effect 挂了 engine 释放钩子', effects.length === 1 && typeof effects[0].fn === 'function', j(effects.map((e) => e.label)))
+ok('[注册] ctx.effect 登记了 engine 释放 disposer（返回值是函数，不是 undefined）', effects.length === 1 && typeof effects[0].disposer === 'function', j(effects.map((e) => e.label)))
 ok('[注册] effect 标签带插件 id', effects[0]?.label === 'remote-rea:engine', String(effects[0]?.label))
 
 ok('[schema] fetch 必填 alias+remotePath', j(fetchTool.parameters.required) === '["alias","remotePath"]', j(fetchTool.parameters.required))
@@ -596,12 +601,42 @@ section('P11 engine 单例与释放')
   // 不注入时首次调用会按默认路径自建真 engine（REVERSE_HOME 指向临时根，不会连任何主机）。
   const text = await hostsTool.execute({ action: 'list' }, {})
   ok('[单例] 懒建真 engine 后 list 可用', String(text).startsWith('主机库'), firstLine(text))
-  const disposer = effects[0].fn
+  ok('[单例] 卸载走的是登记的 disposer（不是注册的 fn 本体）', typeof effects[0].disposer === 'function', String(typeof effects[0].disposer))
   let thrown = null
-  try { disposer() } catch (e) { thrown = e }
-  ok('[单例] effect disposer 调用不抛（真 engine 释放，清扫定时器随之停掉）', thrown === null, String(thrown?.message ?? 'ok'))
-  ok('[单例] disposer 重复调用安全', (() => { try { effects[0].fn(); effects[0].fn(); return true } catch { return false } })())
+  try { effects[0].disposer() } catch (e) { thrown = e }
+  ok('[单例] fiber 卸载路径：disposer 调用不抛（真 engine 释放，清扫定时器随之停掉）', thrown === null, String(thrown?.message ?? 'ok'))
+  ok('[单例] disposer 重复调用安全', (() => { try { effects[0].disposer(); effects[0].disposer(); return true } catch { return false } })())
   ok('[单例] disposer 后单例为空', mod.useEngine(null) === null)
+}
+
+// ===========================================================================
+// P11b 真 cordis 对照锚点 —— 防 mock 契约再漂移：effect = 注册期执行 body，返回值才是 disposer
+// node_modules/@deepseek-ai 是本机符号链接（不入库），解析不到就 SKIP，不假装测过。
+// ===========================================================================
+section('P11b 真 cordis 对照锚点')
+
+{
+  let cordis = null
+  try { cordis = await import('@deepseek-ai/cordis') } catch {}
+  if (!cordis) {
+    skipped('真 cordis 对照（C 组被调 / A 组不被调）', '@deepseek-ai/cordis 不可解析（node_modules/@deepseek-ai 符号链接缺失）')
+  } else {
+    const { Context } = cordis
+    {
+      const app = new Context()
+      const log = []
+      app.effect(() => () => log.push('disposed'), 'c-group:return-disposer')
+      await app.fiber.dispose()
+      ok('[锚点] C 组（修复后形状）卸载时 disposer 被调', j(log) === '["disposed"]', j(log))
+    }
+    {
+      const app = new Context()
+      const log = []
+      app.effect(() => { log.push('body') }, 'a-group:body-no-return')
+      await app.fiber.dispose()
+      ok('[锚点] A 组（修复前形状）body 注册期跑、卸载零动作 —— 证明测试能抓住原缺陷', j(log) === '["body"]', j(log))
+    }
+  }
 }
 
 // ===========================================================================

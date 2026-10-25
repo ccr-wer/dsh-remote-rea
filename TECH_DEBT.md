@@ -16,3 +16,13 @@
    所以这条绑定只登记、不下发（`rea-provider-router.js` 的 `address:'required'`）。
 5. 离线 tarball 部署未实现：当前只支持 preinstalled / npx 两级，隔离内网（远端无 registry 出口）
    场景要人工预装。留待未来版本迭代。
+
+## 已修（记录教训）
+
+### mock 契约漂移（2026-10-25）
+
+`ctx.effect` 的 mock 假设「注册的就是 disposer」，真 cordis 契约是「注册的是 body，返回值才是 disposer」。
+181 条测试全绿，但 disposer 从未注册 —— 测试验证的是我们自己发明的契约。
+修法：mock 改成 `(fn, label) => { const disposer = fn(); effects.push({ disposer, label }) }`，
+并加一条用真 `@deepseek-ai/cordis` 跑的对照测试作为锚点（P11b：C 组 disposer 被调、A 组不被调）。
+教训：mock 宿主 API 时，要么用真实现跑一次对照，要么在 mock 里注明契约来源（包名 + 版本 + 源码行号）。
